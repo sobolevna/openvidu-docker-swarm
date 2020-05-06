@@ -49,11 +49,7 @@ services:
             - /opt/openvidu/kms-crashes:/opt/openvidu/kms-crashes
             - ${OPENVIDU_RECORDING_PATH}:${OPENVIDU_RECORDING_PATH}
         environment:
-#            - KMS_MIN_PORT=40000
-#            - KMS_MAX_PORT=40000
             - GST_DEBUG=${KMS_DEBUG_LEVEL:-}
-#            - KMS_TURN_URL="openvidu:openvidu@${OPENVIDU_DOMAIN_OR_PUBLIC_IP}:3478"
-#            - KMS_EXTERNAL_ADDRESS="${OPENVIDU_DOMAIN_OR_PUBLIC_IP}"
         deploy:
             mode: global
 
@@ -97,6 +93,17 @@ services:
             placement:
                 constraints: [node.role == manager]
 
+    visualizer:
+        image: dockersamples/visualizer:stable
+        ports:
+            - "8080:8080"
+        stop_grace_period: 1m30s
+        volumes:
+            - "/var/run/docker.sock:/var/run/docker.sock"
+        deploy:
+            placement:
+                constraints: [node.role == manager]
+                
     # Change this if your want use your own application.
     # It's very important expose your application in port 5442
     # and use the http protocol.
