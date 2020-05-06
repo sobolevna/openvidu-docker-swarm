@@ -16,18 +16,15 @@
 version: '3.1'
 
 networks:
-    outside:
-        external:
-            name: host
+    host:
+        external: true
 
 services:
 
     openvidu-server:
         image: openvidu/openvidu-server:2.13.0
         restart: on-failure
-        networks: 
-            - outside
-        entrypoint: ['/bin/bash', '-c', 'export COTURN_IP=`/usr/local/bin/discover_my_public_ip.sh`; /usr/local/bin/entrypoint.sh']
+        entrypoint: ['/bin/bash', '-c', 'export COTURN_IP=${OPENVIDU_COTURN_IP:-`/usr/local/bin/discover_my_public_ip.sh`}; /usr/local/bin/entrypoint.sh']
         volumes:
             - /var/run/docker.sock:/var/run/docker.sock
             - ${OPENVIDU_RECORDING_PATH}:${OPENVIDU_RECORDING_PATH}
@@ -38,14 +35,14 @@ services:
         environment:
             - SERVER_SSL_ENABLED=false
             - SERVER_PORT=5443
-            - KMS_URIS=["ws://localhost:8888/kurento"]
-            - COTURN_REDIS_IP=127.0.0.1
-
+            - KMS_URIS=["ws://kms:8888/kurento"]
+            - COTURN_REDIS_IP=redis
+        depends_on:
+            - kms
+            - redis
     kms:
         image: ${KMS_IMAGE:-kurento/kurento-media-server:6.13.1}
         restart: always
-        networks: 
-            - outside
         ulimits:
             core: -1
         volumes:
@@ -55,18 +52,20 @@ services:
             - KMS_MIN_PORT=40000
             - KMS_MAX_PORT=57000
             - GST_DEBUG=${KMS_DEBUG_LEVEL:-}
+        deploy:
+            mode: global
 
     redis:
         image: redis:5.0.7
         restart: always
-        networks: 
-            - outside
+        ports: 
+            - 6379:6379
 
     coturn:
         image: openvidu/openvidu-coturn:1.0.0
         restart: on-failure
         networks: 
-            - outside
+            - host
         environment:
             - REDIS_IP=127.0.0.1
             - TURN_LISTEN_PORT=3478
@@ -74,22 +73,27 @@ services:
             - DB_PASSWORD=turn
             - MIN_PORT=57001
             - MAX_PORT=65535
-
+        depends_on: 
+            - redis
+        deploy:
+            placement:
+                constraints: [node.role == manager]    
     nginx:
-        image: openvidu/openvidu-proxy:1.0.0
-        restart: on-failure
-        networks: 
-            - outside
-        volumes:
-            - ./certificates:/etc/letsencrypt
-            - ./owncert:/owncert
-            - ${OPENVIDU_RECORDING_CUSTOM_LAYOUT}:/opt/openvidu/custom-layout
-        environment:
-            - DOMAIN_OR_PUBLIC_IP=${OPENVIDU_DOMAIN_OR_PUBLIC_IP}
-            - CERTIFICATE_TYPE=${CERTIFICATE_TYPE}
-            - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL}
-            - PROXY_MODE=CE
-            - WITH_DEMOS=true
+        image: nginx:latest
+        ports: 
+            - "80:80"
+            - "443:443"
+        volumes: 
+            - ./nginx/conf.d/nginx-local.conf:/etc/nginx/conf.d/nginx.conf 
+            - ./nginx/logs:/var/log/nginx/
+            - ./owncert/${OPENVIDU_DOMAIN_OR_PUBLIC_IP}/:/owncert/
+        depends_on:
+            - app
+            - openvidu-server
+        restart: unless-stopped
+        deploy:
+            placement:
+                constraints: [node.role == manager]
 
     # Change this if your want use your own application.
     # It's very important expose your application in port 5442
