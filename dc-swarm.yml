@@ -49,9 +49,11 @@ services:
             - /opt/openvidu/kms-crashes:/opt/openvidu/kms-crashes
             - ${OPENVIDU_RECORDING_PATH}:${OPENVIDU_RECORDING_PATH}
         environment:
-            - KMS_MIN_PORT=40000
-            - KMS_MAX_PORT=57000
+#            - KMS_MIN_PORT=40000
+#            - KMS_MAX_PORT=40000
             - GST_DEBUG=${KMS_DEBUG_LEVEL:-}
+#            - KMS_TURN_URL="openvidu:openvidu@${OPENVIDU_DOMAIN_OR_PUBLIC_IP}:3478"
+#            - KMS_EXTERNAL_ADDRESS="${OPENVIDU_DOMAIN_OR_PUBLIC_IP}"
         deploy:
             mode: global
 
@@ -71,7 +73,7 @@ services:
             - TURN_LISTEN_PORT=3478
             - DB_NAME=0
             - DB_PASSWORD=turn
-            - MIN_PORT=57001
+            - MIN_PORT=40001
             - MAX_PORT=65535
         depends_on: 
             - redis
